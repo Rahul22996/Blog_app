@@ -5,9 +5,13 @@ const Schema = mongoose.Schema;
 const blogModel = new Schema({
     uid : {
         type : Schema.Types.ObjectId,
-        ref : 'uid'
+        ref : 'user'
     },
-    image : String,
+    category : {
+        type : Schema.Types.ObjectId,
+        ref : 'category'
+    },
+    image : [String],
     location : String,
     caption : String,
     time : {
@@ -17,6 +21,10 @@ const blogModel = new Schema({
     like : [{
         type : Schema.Types.ObjectId,
         ref : 'user'
+    }],
+    comment : [{
+        type : Schema.Types.ObjectId,
+        ref : 'comment'
     }]
 });
 

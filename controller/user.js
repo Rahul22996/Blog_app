@@ -2,10 +2,8 @@ const USER = require('../model/user_model')
 const BLOG = require('../model/blog_model')
 const bcrypt = require('bcrypt')
 const nodemailer = require("nodemailer");
-// let Storage = require('node-persist');Storage.init();
 const jwt = require("jsonwebtoken");
-const { log } = require('node-persist');
-const COMMENT = require('../model/comment_model')
+const COMMENT = require('../model/comment_model');
 
 //   ------------------------------------------------------------------------------------------------------
 
@@ -34,7 +32,9 @@ async function main(email) {
 
 exports.signup = async function (req, res, next) {
     try {
-        req.body.image = req.file.filename;
+        if(req.file){
+            req.body.image = req.file.filename;
+        }
         req.body.password = await bcrypt.hash(req.body.password, 9)
 
         if (!req.body.name || !req.body.username || !req.body.email || !req.body.password) {
@@ -89,8 +89,6 @@ exports.login = async function (req, res, next) {
         }
         var token = jwt.sign({ id: checkUser._id }, 'token')
 
-
-
         res.status(200).json({
             status: "Success",
             messeage: "Login Succesful",
@@ -108,6 +106,9 @@ exports.login = async function (req, res, next) {
 
 exports.add_blog = async function (req, res, next) {
     try {
+        req.body.image = req.files.map(file => file.filename)
+        console.log(req.files)
+        
         let uid = await jwt.verify(req.headers.token, 'token')
         req.body.uid = uid.id;
         let data = await BLOG.create(req.body);
@@ -127,11 +128,28 @@ exports.add_blog = async function (req, res, next) {
 exports.show_blog = async function (req, res, next) {
     try {
 
-        let data = await BLOG.find().populate('user');
+        let data = await BLOG.find().populate('uid');
 
         res.status(200).json({
             status: "Success",
             message: "Blogs posted by User",
+            data
+        })
+    } catch (error) {
+        res.status(404).json({
+            status: "Fail"
+        })
+    }
+}
+
+exports.show_category_blog = async function (req, res, next) {
+    try {
+        let c_id = req.params.cid
+        let data = await BLOG.find({category : c_id}).populate('uid');
+
+        res.status(200).json({
+            status: "Success",
+            message: "Blogs by Ctaegories",
             data
         })
     } catch (error) {
@@ -174,6 +192,7 @@ exports.delete_blog = async function (req, res, next) {
     }
 }
 
+
 //   ------------------------------------------------------------------------------------------------------
 
 exports.add_like = async function (req, res, next) {
@@ -193,7 +212,6 @@ exports.add_like = async function (req, res, next) {
             for (let likes of like) {
                 if (likes == id) {
                     null
-                    //   like.splice(likes, 1)
                 }
                 else {
                     new_like.push(likes)
@@ -245,14 +263,19 @@ exports.add_comment = async function(req, res, next) {
     try {
         let uid = await jwt.verify(req.headers.token, 'token')
         req.body.uid = uid.id
-        let bid = req.params.bid
+        let b_id = req.params.bid
 
         let data = await COMMENT.create(req.body)
+
+        let data1 = await BLOG.findOneAndUpdate(
+            {"_id" : b_id},
+            {$push : {comment : data}},
+            {new : true})
 
         res.status(200).json({
             status : "Success",
             message : "Comment Added",
-            data
+            data1
         })       
 
     } catch (error) {
@@ -264,12 +287,13 @@ exports.add_comment = async function(req, res, next) {
 
 exports.show_comment = async function(req, res, next) {
     try {
-        let bid = req.params.id
-        let data = await COMMENT.find().populate('uid')
+        let b_id = req.params.bid
+        let data = await BLOG.findOne({_id: b_id}).populate('comment')
+        console.log(data);
 
         res.status(200).json({
             status : "Success",
-            message : "Comment on Blog",
+            message : "Comments on Blog",
             data
         })       
 
@@ -282,8 +306,8 @@ exports.show_comment = async function(req, res, next) {
 
 exports.delete_comment = async function(req, res, next) {
     try {
-        var userid = req.body.uid
-        let data = await COMMENT.findOneAndDelete({"uid" : userid})
+        var cid = req.params.cid
+        let data = await COMMENT.findByIdAndDelete(cid)
 
         res.status(200).json({
             status : "Success",
